@@ -11,6 +11,7 @@
 <p align="center">
   <a href="https://arxiv.org/abs/2610.34162"><img src="https://img.shields.io/badge/arXiv-2610.34162-B31B1B?style=flat&amp;logo=arxiv&amp;logoColor=white" alt="arXiv: 2610.34162" height="20"></a>
   <a href="https://huggingface.co/datasets/MMFact/MMFact"><img src="https://img.shields.io/badge/Hugging%20Face-Dataset-FFD21E?style=flat&amp;logo=huggingface" alt="Hugging Face: Dataset" height="20"></a>
+  <a href="https://huggingface.co/MMFact/MMFact-CKPT"><img src="https://img.shields.io/badge/Hugging%20Face-CKPT-007EC6?style=flat&amp;logo=huggingface" alt="Hugging Face: CKPT" height="20"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-%E2%89%A53.10-3776AB?style=flat&amp;logo=python&amp;logoColor=white" alt="Python &gt;=3.10" height="20"></a>
   <a href="https://pytorch.org/"><img src="https://img.shields.io/badge/PyTorch-%E2%89%A52.2-EE4C2C?style=flat&amp;logo=pytorch&amp;logoColor=white" alt="PyTorch &gt;=2.2" height="20"></a>
 </p>
