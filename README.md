@@ -47,11 +47,7 @@ python main.py --model CLIPMLP --dataset weibo17 \
 
 Use `--model` and `--dataset` to select other models and datasets. Configuration files are in `configs/`, and results are saved to `runs/`.
 
-Ordinary supervised visual branches default to **ViT-B/16**. Add
-`--vision-backbone resnet` to **both** the download and training commands for the
-ResNet-50 comparison. Both choices use the same selected experiment parameters;
-MAE, CLIP, and dedicated detection or forensic branches retain their own backbones.
-See [Visual Backbones](VISION_BACKBONES.md) for feature formats and fine-tuning behavior.
+For [models](VISION_BACKBONES.md) with a selectable visual backbone, ViT is the default. To use ResNet, add `--vision-backbone resnet` to both the download and training commands.
 
 ## Datasets
 
