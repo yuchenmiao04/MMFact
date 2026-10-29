@@ -19,6 +19,7 @@ from mmfact.materials.training import (
     resource_tensor,
 )
 from mmfact.models_classification._encoders import BertEncoder, ResNetEncoder
+from mmfact.models_classification._supervised_vision import ViTIndependentPatches
 from mmfact.registry import register_model
 
 
@@ -148,6 +149,12 @@ class _PatchEncoder(ResNetEncoder):
         return torch.stack(results)
 
 
+def _patch_encoder(**options):
+    if options.get("backbone") == "vit":
+        return ViTIndependentPatches(resize="lanczos", **options)
+    return _PatchEncoder(**options)
+
+
 def _contrastive(features, memory, indices):
     """Paper Eq.(3), with actual positive count and a negative-only denominator."""
     # Retrieval state stays on CPU; masks participate in the feature-device loss.
@@ -184,7 +191,7 @@ class BTIC(AbstractDetector):
             headline_key=p["headline_key"],
             **{**p["text"], "freeze": True, "output": "cls", "mask_padding": False},
         )
-        self.image_encoder = material_encoder(config, "image_encoder", _PatchEncoder, **p["image"])
+        self.image_encoder = material_encoder(config, "image_encoder", _patch_encoder, **p["image"])
         self.image_projection = nn.Sequential(
             nn.Linear(self.image_encoder.output_dim, p["projection_dim"]),
             nn.Linear(p["projection_dim"], d),

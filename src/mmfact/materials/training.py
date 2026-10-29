@@ -13,6 +13,7 @@ from mmfact.data.features import (
     resource_path,
     state_digest,
 )
+from mmfact.materials.vision import refit_training_resource
 
 
 def encoder_identity(encoder):
@@ -30,6 +31,10 @@ def hub_training_resource(config, name, *, expected=None):
     from mmfact.materials.encoders import hub_inputs, material_store
 
     if not hub_inputs(config):
+        return None
+    if refit_training_resource(config["model"]["name"], config["model"]["parameters"], name):
+        # The released CSFND assignments were fitted on ResNet. ViT runs fit
+        # new train-only assignments from the selected immutable matrices.
         return None
     store = material_store(config)
     entries = [entry for entry in store.training_catalog if entry.get("type") == name]
@@ -91,12 +96,15 @@ def load_prepared_resource(model, name, identity, build, *, encoders):
     if hasattr(model, "prepared_resources"):
         model.prepared_resources.pop(name, None)
     options = model.config.get("preprocessing", {})
-    if options.get("layout") == "hub":
+    refit = options.get("layout") == "hub" and refit_training_resource(
+        model.config["model"]["name"], model.config["model"]["parameters"], name
+    )
+    if options.get("layout") == "hub" and not refit:
         raise PreparedInputError(
             f"Hub training resource {name!r} must be read from training/catalog.json; "
             "the training loop does not rebuild exported resources."
         )
-    if (
+    if not refit and (
         not options.get("enabled")
         or not encoders
         or not all(getattr(encoder, "preprocessing", None) is not None for encoder in encoders)
@@ -126,10 +134,10 @@ def load_prepared_resource(model, name, identity, build, *, encoders):
     reused = path.is_file()
     # Only these small, training-only resources may be rebuilt after a source
     # correction. Their encoders retain their own prepared-only cache policy.
-    rebuild = prepared_only(options.get("mode")) and name in {
+    rebuild = refit or (prepared_only(options.get("mode")) and name in {
         "mhr_reference_graph",
         "csfnd_initial_clusters",
-    }
+    })
     if rebuild:
         with cache_policy("raw"):
             value = load_resource(root, spec, lambda: _cpu(build()), mode="raw")

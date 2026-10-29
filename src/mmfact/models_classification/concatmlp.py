@@ -1,4 +1,4 @@
-"""Raw PLM and ResNet features concatenated before classification (C05)."""
+"""Raw PLM and supervised image features concatenated before classification (C05)."""
 
 from mmfact.models_classification._neural_baselines import _NeuralBaseline
 from mmfact.registry import register_model

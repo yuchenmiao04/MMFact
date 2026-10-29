@@ -1,4 +1,4 @@
-"""SpotFake: frozen BERT/ResNet features with supervised multimodal fusion."""
+"""SpotFake: frozen BERT/image features with supervised multimodal fusion."""
 
 from collections.abc import Mapping, Sequence
 from typing import Any
@@ -9,7 +9,8 @@ from torch.nn import functional as F
 
 from mmfact.base import AbstractDetector
 from mmfact.materials.encoders import material_encoder
-from mmfact.models_classification._encoders import BertEncoder, ResNetEncoder
+from mmfact.models_classification._encoders import BertEncoder
+from mmfact.models_classification._supervised_vision import supervised_encoder
 from mmfact.registry import register_model
 
 
@@ -37,7 +38,7 @@ class SpotFake(AbstractDetector):
             config, "text_encoder", BertEncoder, **parameters["text"]
         )
         self.image_encoder = material_encoder(
-            config, "image_encoder", ResNetEncoder, **parameters["image"]
+            config, "image_encoder", supervised_encoder, **parameters["image"]
         )
         dropout = parameters["dropout"]
         text_hidden = parameters["text_hidden"]

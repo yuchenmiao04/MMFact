@@ -12,6 +12,7 @@ from torch.nn import functional as F
 from mmfact.base import AbstractDetector
 from mmfact.materials.encoders import material_encoder
 from mmfact.models_classification._encoders import BertEncoder, ResNetEncoder
+from mmfact.models_classification._supervised_vision import ViTMultiScaleEncoder
 from mmfact.models_classification._layers import SingletonBatchNorm
 from mmfact.registry import register_model
 
@@ -68,14 +69,19 @@ def _validate(parameters):
             "MSACA needs frozen unnormalized tokens with retained pads and L>=kernels."
         )
     if (
-        set(image) - {"freeze", "weights", "scales", "architecture"}
+        set(image) - {
+            "freeze", "weights", "scales", "architecture", "backbone",
+            "model_name", "revision", "center_crop",
+        }
         or image.get("freeze") is not True
     ):
         raise ValueError("MSACA image settings are freeze=true, weights and three scales.")
     if image.get("weights") not in (None, "IMAGENET1K_V1"):
         raise ValueError("MSACA ResNet weights must be IMAGENET1K_V1 or null.")
-    if image.get("architecture", "resnet50") not in {"resnet34", "resnet50"}:
-        raise ValueError("MSACA requires a ResNet34 or ResNet50 image backbone.")
+    if image.get("backbone") != "vit" and image.get("architecture", "resnet50") not in {
+        "resnet34", "resnet50"
+    }:
+        raise ValueError("MSACA requires a supervised ViT or ResNet image backbone.")
     _validate_scales(image.get("scales"))
 
 
@@ -131,6 +137,12 @@ class _MultiScaleResNet(ResNetEncoder):
             return torch.stack(
                 [self.network(torch.stack(values).to(self.device)) for values in pixels], dim=1
             )
+
+
+def _multiscale_encoder(**options):
+    if options.get("backbone") == "vit":
+        return ViTMultiScaleEncoder(**options)
+    return _MultiScaleResNet(**options)
 
 
 def _mlp(input_dim, dimensions, dropout=0.0):
@@ -207,7 +219,7 @@ class MSACA(AbstractDetector):
             config, "text_encoder", BertEncoder, **parameters["text"]
         )
         self.image_encoder = material_encoder(
-            config, "image_encoder", _MultiScaleResNet, **parameters["image"]
+            config, "image_encoder", _multiscale_encoder, **parameters["image"]
         )
         dimension, unimodal = parameters["alignment_dim"], parameters["unimodal_dim"]
         self.alpha = parameters["alpha"]

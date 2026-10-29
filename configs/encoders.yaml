@@ -18,6 +18,13 @@ resnet:
   default:
     architecture: resnet50
     weights: IMAGENET1K_V1
+supervised_vit:
+  default:
+    backbone: vit
+    architecture: vit_base_patch16_224
+    model_name: google/vit-base-patch16-224
+    revision: 3f49326eb077187dfe1c2a2bb15fbd74e6ab91e3
+    center_crop: false
 mae:
   default:
     model_name: facebook/vit-mae-base

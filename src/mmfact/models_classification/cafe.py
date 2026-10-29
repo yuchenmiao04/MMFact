@@ -13,7 +13,8 @@ from mmfact.models_classification._distributions import (
     GaussianEncoder as _GaussianEncoder,
 )
 from mmfact.models_classification._cafe_normalization import marginal_kl_pair
-from mmfact.models_classification._encoders import BertEncoder, ResNetEncoder
+from mmfact.models_classification._encoders import BertEncoder
+from mmfact.models_classification._supervised_vision import supervised_encoder
 from mmfact.registry import register_model
 
 
@@ -44,7 +45,7 @@ class CAFE(AbstractDetector):
             config, "text_encoder", BertEncoder, **parameters["text"]
         )
         self.image_encoder = material_encoder(
-            config, "image_encoder", ResNetEncoder, **parameters["image"]
+            config, "image_encoder", supervised_encoder, **parameters["image"]
         )
         dimension = parameters["alignment_dim"]
         self.text_projection = _mlp(self.text_encoder.output_dim, [parameters["text_dim"]])

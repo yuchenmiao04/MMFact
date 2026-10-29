@@ -215,7 +215,9 @@ class _HubCache:
 
 def _configure_hub(model, options):
     from mmfact.materials.encoders import HubWordEncoder, material_store
-    from mmfact.materials.hub import HubEncoder
+    from mmfact.materials.hub import FeatureMatrix, HubEncoder
+    from mmfact.materials.vision import branch_options, vision_feature
+    from mmfact.models_classification._supervised_vision import SupervisedViTEncoder
 
     store = material_store(model.config)
     name = model.config["model"]["name"]
@@ -226,6 +228,16 @@ def _configure_hub(model, options):
             continue
         encoder.preprocessing = None
         if not encoder.freeze or not encoder.cache_features or getattr(encoder, "augment", False):
+            continue
+        if isinstance(encoder, SupervisedViTEncoder):
+            branch = branch_options(model.config["model"]["parameters"], role)
+            selected = vision_feature(store.entries, name, role, branch)
+            if selected is not None:
+                encoder.preprocessing = _HubCache(
+                    FeatureMatrix(store.root, selected), options["materials_root"]
+                )
+            # A trained encoder may become frozen in a later stage. Its original
+            # trainable/unknown role must not bind to initial or ResNet features.
             continue
         matches = [
             entry

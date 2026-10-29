@@ -48,8 +48,8 @@ model:
     - CLIPMLP
     - TFIDFLogistic
     repository_revision: 4b0e352a3d68cbf9e149dda4ed180e7dea91b0cb
-    materials_repo: PNemo/MMFact
-    materials_revision: 40caa16d6621c020c49d0422d5e153ef822a9266
+    materials_repo: MMFact/MMFact
+    materials_revision: 88f12904c8db147d2fa6774c956a6afd72ac4272
     implementation: paired_global_linear_svm_sigmoid_v1
 training:
   seeds:

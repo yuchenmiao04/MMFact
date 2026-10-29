@@ -43,6 +43,15 @@ _TOP_KEYS = {
     "output_dir",
 }
 
+# Only ordinary supervised visual branches participate in this comparison.
+# MAE, paired CLIP, detection, and method-specific forensic networks are separate.
+SUPERVISED_VISION_MODELS = frozenset({
+    "ADOSE", "BTIC", "CAFE", "CMC", "COOLANT", "CSFND", "ConcatMLP", "EANN",
+    "EM-FEND", "ERIC-FND", "FND-CLIP", "HMCAN", "ImageOnly", "LateFusion",
+    "LogicDM", "MCAN", "MRML", "MSACA", "MVAE", "NSLM", "RDCM", "SpotFake",
+    "SpotFakePlus", "att-RNN",
+})
+
 
 def _read_yaml(path: Path) -> dict[str, Any]:
     try:
@@ -104,6 +113,48 @@ def _resolve_encoder_presets(parameters: Any, dataset: str) -> Any:
         return {key: resolve(item) for key, item in options.items()}
 
     return resolve(parameters)
+
+
+def _resolve_supervised_vision(config: dict, legacy_parameters: dict) -> None:
+    """Select the visual recipe without changing trained heads or hyperparameters.
+
+    Model YAMLs retain the existing ResNet recipe and experimental parameters.
+    The explicit selector changes only the ordinary image branches. Keeping a
+    copy of the preset recipe also permits switching a saved ViT config back to
+    ResNet without carrying ViT-only checkpoint or preprocessing fields across.
+    """
+    model = config["model"]
+    choice = model.get("vision_backbone")
+    if choice is None:
+        return  # Methods without an ordinary supervised selector stay unchanged.
+    preset = _read_yaml(_CONFIG_DIR / "encoders.yaml")["supervised_vit"]["default"]
+    recipe_keys = ("architecture", "weights", "model_name", "revision",
+                   "backbone", "center_crop", "stem_maxpool")
+
+    def visit(parameters, reference):
+        for name, value in parameters.items():
+            if not isinstance(value, dict):
+                continue
+            original = reference.get(name, {}) if isinstance(reference, dict) else {}
+            if name not in {"image", "contrastive_image"}:
+                visit(value, original)
+                continue
+            if choice == "resnet":
+                if value.get("backbone") == "vit":
+                    for key in recipe_keys:
+                        value.pop(key, None)
+                        if key in original:
+                            value[key] = deepcopy(original[key])
+                    if model["name"] == "MSACA":
+                        value["scales"] = deepcopy(original["scales"])
+                continue
+            value.pop("weights", None)
+            value.pop("stem_maxpool", None)
+            value.update(deepcopy(preset))
+            if model["name"] == "MSACA":
+                value["scales"] = [224, 112, 64]
+
+    visit(model["parameters"], legacy_parameters)
 
 
 def _set_dotted(config: dict[str, Any], key: str, value: Any) -> None:
@@ -308,8 +359,13 @@ def validate_config(config: Mapping[str, Any]) -> None:
     ):
         raise ConfigError("Image verification/hashing requires dataset.require_images=true")
 
-    model = _mapping(config, "model", {"name", "module", "parameters", "provenance"})
+    model = _mapping(config, "model", {"name", "module", "parameters", "provenance", "vision_backbone"})
     _nonempty_string(model.get("name"), "model.name")
+    if "vision_backbone" in model:
+        if model["name"] not in SUPERVISED_VISION_MODELS:
+            raise ConfigError("model.vision_backbone is only available for ordinary supervised visual branches")
+        if not isinstance(model["vision_backbone"], str) or model["vision_backbone"] not in {"vit", "resnet"}:
+            raise ConfigError("model.vision_backbone must be vit or resnet")
     if model.get("module") is not None:
         _nonempty_string(model["module"], "model.module")
     for key in ("parameters", "provenance"):
@@ -574,6 +630,9 @@ def load_config(
     if not isinstance(specific, dict) or set(specific) - {"model", "training"}:
         raise ConfigError("Dataset-specific model settings may only override model and training")
     _deep_merge(config, specific)
+    legacy_parameters = _resolve_encoder_presets(
+        deepcopy(config["model"]["parameters"]), dataset
+    )
     for path in config_files:
         _deep_merge(config, _read_yaml(Path(path).expanduser()))
     for override in overrides:
@@ -588,6 +647,7 @@ def load_config(
     # Validate basic values first: recursive aliases must not enter the resolver.
     validate_config(config)
     config["model"]["parameters"] = _resolve_encoder_presets(config["model"]["parameters"], dataset)
+    _resolve_supervised_vision(config, legacy_parameters)
     validate_config(config)
     config["dataset"]["root"] = str(Path(config["dataset"]["root"]).expanduser().resolve())
     config["preprocessing"]["cache_dir"] = str(

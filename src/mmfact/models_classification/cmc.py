@@ -35,8 +35,8 @@ def _validate(p):
         raise ValueError("CMC peers must be trainable during mutual distillation.")
     if p["image"].get("weights") not in (None, "IMAGENET1K_V1"):
         raise ValueError("CMC image weights must be IMAGENET1K_V1 or null.")
-    if p["image"].get("architecture") != "resnet50":
-        raise ValueError("CMC common image peer requires ResNet50.")
+    if p["image"].get("backbone") != "vit" and p["image"].get("architecture") != "resnet50":
+        raise ValueError("CMC common image peer requires supervised ViT or ResNet50.")
     hidden = p.get("image_classifier_dims")
     if not isinstance(hidden, list):
         raise ValueError("CMC image_classifier_dims must be a list.")

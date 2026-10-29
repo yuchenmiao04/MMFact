@@ -14,7 +14,8 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from mmfact.base import AbstractDetector
 from mmfact.materials.encoders import material_encoder
-from mmfact.models_classification._encoders import ResNetEncoder, WordEncoder
+from mmfact.models_classification._encoders import WordEncoder
+from mmfact.models_classification._supervised_vision import supervised_encoder
 from mmfact.registry import register_model
 
 
@@ -40,7 +41,7 @@ class MVAE(AbstractDetector):
         super().__init__(config)
         parameters = config["model"]["parameters"]
         self.text = material_encoder(config, "text", WordEncoder, **parameters["text"])
-        self.image = material_encoder(config, "image", ResNetEncoder, **parameters["image"])
+        self.image = material_encoder(config, "image", supervised_encoder, **parameters["image"])
         hidden = parameters.get("hidden_dim", 32)
         image_hidden = parameters.get("image_hidden_dim", 1024)
         latent = parameters.get("latent_dim", 64)

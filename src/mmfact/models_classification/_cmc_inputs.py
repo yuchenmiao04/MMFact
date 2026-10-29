@@ -12,6 +12,7 @@ from PIL import Image
 from torch import nn
 
 from mmfact.models_classification._encoders import _PretrainedEncoder
+from mmfact.models_classification._supervised_vision import SupervisedViTEncoder
 
 
 def _positive_int(value, name, minimum=1):
@@ -153,7 +154,7 @@ class CMCTextEncoder(_CMCEncoder):
             return output.reshape(len(texts), self.output_dim)
 
 
-class CMCImageEncoder(_CMCEncoder):
+class _CMCResNetImageEncoder(_CMCEncoder):
     """Common pretrained ResNet50 avgpool, with online stage-one flip."""
 
     input_kind = "image"
@@ -270,3 +271,62 @@ class CMCImageEncoder(_CMCEncoder):
             {key: value for key, value in state.items() if key != "augmentation"}
         )
         self.set_augmentation(state["augmentation"])
+
+
+class _CMCViTImageEncoder(SupervisedViTEncoder, _CMCEncoder):
+    """The same mutual/fusion stage policy with the shared supervised ViT."""
+
+    def __init__(self, *, image_size=None, flip_probability=0.5, freeze=False, **options):
+        image_size = [224, 224] if image_size is None else image_size
+        if list(image_size) != [224, 224]:
+            raise ValueError("CMC supervised ViT uses the common 224x224 input recipe.")
+        if (
+            type(flip_probability) not in (int, float)
+            or not math.isfinite(flip_probability)
+            or not 0 <= flip_probability <= 1
+        ):
+            raise ValueError("CMC flip_probability must be finite in [0, 1].")
+        super().__init__(freeze=freeze, **options)
+        # CMC trains its own peer classifier from CLS. Keeping an unused frozen
+        # ImageNet head would violate its strict all-peer stage/restore policy.
+        self.network.classifier = nn.Identity()
+        self.image_size = tuple(image_size)
+        self.flip_probability = float(flip_probability)
+        self.augment = True
+        self.encoding_spec.update(
+            encoder="cmc-supervised-vit-image-peer",
+            augmentation="none-for-fixed-eval-features",
+            training_flip_probability=self.flip_probability,
+        )
+
+    def _features(self, paths, augment):
+        return self.encode_pixels(self._pixels(paths, augment))
+
+    set_augmentation = _CMCResNetImageEncoder.set_augmentation
+    _pixels = _CMCResNetImageEncoder._pixels
+    _encode = _CMCResNetImageEncoder._encode
+
+    def forward(self, paths):
+        if self.training and self.augment:
+            return self._features(paths, augment=True)
+        return super().forward(paths)
+
+    def get_extra_state(self):
+        return {**_CMCEncoder.get_extra_state(self), "augmentation": self.augment}
+
+    def set_extra_state(self, state):
+        if not isinstance(state, dict) or not isinstance(state.get("augmentation"), bool):
+            raise ValueError("CMC image checkpoint augmentation must be boolean.")
+        _CMCEncoder.set_extra_state(
+            self, {key: value for key, value in state.items() if key != "augmentation"}
+        )
+        self.set_augmentation(state["augmentation"])
+
+
+def CMCImageEncoder(*, backbone="resnet", **options):
+    """Select the common visual backbone without changing CMC's training stages."""
+    if backbone == "vit":
+        return _CMCViTImageEncoder(backbone=backbone, **options)
+    if backbone == "resnet":
+        return _CMCResNetImageEncoder(**options)
+    raise ValueError("CMC visual backbone must be vit or resnet.")

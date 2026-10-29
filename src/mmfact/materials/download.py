@@ -13,6 +13,7 @@ import yaml
 from mmfact import configs
 from mmfact.config import ConfigError, load_config
 from mmfact.registry import list_models
+from mmfact.materials.vision import branch_options, refit_training_resource, resolve_vision_catalog
 
 
 def _slug(name):
@@ -94,17 +95,7 @@ def _read_catalog(root, relative, *, repo_id, revision, local_files_only, token)
 
 def _options(parameters, role):
     """Map public catalog roles to the ordinary model configuration branches."""
-    first = role.split(".", 1)[0]
-    key = {
-        "text_encoder": "text",
-        "image_encoder": "image",
-        "clip_text_encoder": "clip_text",
-        "clip_image_encoder": "clip_image",
-        "reference_encoder": "reference_text",
-        "pattern_pixels": "pattern_image",
-    }.get(first, first)
-    branch = parameters.get(key)
-    return branch if isinstance(branch, dict) else {}
+    return branch_options(parameters, role)
 
 
 def _entries(catalog, kind, model):
@@ -174,7 +165,7 @@ def requires_images(config, catalog):
     slug = _slug(config["model"]["name"])
     features = [
         (entry, roles)
-        for entry, roles in _feature_entries(catalog, slug, definitions)
+        for entry, roles in _feature_entries(catalog, slug, definitions, parameters)
         if _keep_feature(entry, roles, parameters)
     ]
     return _requires_images(
@@ -182,7 +173,8 @@ def requires_images(config, catalog):
     )
 
 
-def _feature_entries(catalog, slug, definitions):
+def _feature_entries(catalog, slug, definitions, parameters=None):
+    catalog = resolve_vision_catalog(catalog, slug, parameters or {})
     entries = list(_entries(catalog, "features", slug))
     for source in definitions.get("feature_sources", {}).get(slug, []):
         matches = [
@@ -205,7 +197,10 @@ def _backbones(parameters, prefix=""):
         if not isinstance(value, dict):
             continue
         role = f"{prefix}.{key}".strip(".")
-        if value.get("model_name") and (value.get("freeze") is not True or value.get("augment")):
+        frozen_vit = value.get("backbone") == "vit" and value.get("freeze") is not False
+        if value.get("model_name") and (
+            (value.get("freeze") is not True and not frozen_vit) or value.get("augment")
+        ):
             identifier = value["model_name"]
             yield {
                 "name": role,
@@ -276,7 +271,7 @@ def plan_materials(
                 token=token,
             )
         )
-    feature_entries = _feature_entries(loaded["features"], slug, definitions)
+    feature_entries = _feature_entries(loaded["features"], slug, definitions, parameters)
     features = [
         (entry, roles)
         for entry, roles in feature_entries
@@ -297,6 +292,8 @@ def plan_materials(
         if PurePosixPath(entry["values"]).name == "values.npy":
             patterns.append(prefix + str(parent / "*"))
     for entry, _ in _entries(loaded["resources"], "resources", slug):
+        if refit_training_resource(slug, parameters, entry.get("type")):
+            continue
         directory = _relative(entry["directory"])
         patterns.append(prefix + directory + "/*")
         for path in entry.get("files", {}).values():
@@ -345,7 +342,13 @@ def plan_materials(
             raise ConfigError("A material plan must remain inside its selected dataset.")
     sizes = [inventory[p] for p in selected]
     total = sum(sizes) if all(isinstance(n, int) and n >= 0 for n in sizes) else None
-    external = [*definitions["external"].get(slug, []), *_backbones(parameters)]
+    external = [
+        *(
+            [] if slug == "rdcm" and parameters.get("image", {}).get("backbone") == "vit"
+            else definitions["external"].get(slug, [])
+        ),
+        *_backbones(parameters),
+    ]
     if slug in {"dammfnd", "mmdfnd", "logicdm", "event_radar"}:
         text = parameters["text"]
         external.append(

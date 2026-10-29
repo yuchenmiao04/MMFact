@@ -10,12 +10,8 @@ from torch.nn import functional as F
 
 from mmfact.base import AbstractDetector
 from mmfact.materials.encoders import material_encoder
-from mmfact.models_classification._encoders import (
-    BertEncoder,
-    CLIPImageEncoder,
-    CLIPTextEncoder,
-    ResNetEncoder,
-)
+from mmfact.models_classification._encoders import BertEncoder, CLIPImageEncoder, CLIPTextEncoder
+from mmfact.models_classification._supervised_vision import supervised_encoder
 
 
 def _signature(value):
@@ -52,7 +48,7 @@ class _NeuralBaseline(AbstractDetector):
         dimension = 0
         encoder_types = {
             "text": CLIPTextEncoder if self.clip else BertEncoder,
-            "image": CLIPImageEncoder if self.clip else ResNetEncoder,
+            "image": CLIPImageEncoder if self.clip else supervised_encoder,
         }
         for modality in self.modalities:
             encoder = material_encoder(

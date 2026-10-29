@@ -12,7 +12,8 @@ from mmfact.base import AbstractDetector
 from mmfact.materials.encoders import material_encoder
 from mmfact.materials.resources import material_resources
 from mmfact.models_classification._em_fend_resources import TYPES, EntityResources
-from mmfact.models_classification._encoders import BertEncoder, ResNetEncoder
+from mmfact.models_classification._encoders import BertEncoder
+from mmfact.models_classification._supervised_vision import supervised_encoder
 from mmfact.registry import register_model
 
 
@@ -132,7 +133,7 @@ class EMFEND(AbstractDetector):
         self.recipe = {**deepcopy(p), "resources": deepcopy(self.resources.protocol)}
         self.text_encoder = material_encoder(config, "text_encoder", _PairBert, **text)
         self.text_encoder.network.pooler = None  # Token/mean paths never use a pooled CLS head.
-        self.image_encoder = material_encoder(config, "image_encoder", ResNetEncoder, **p["image"])
+        self.image_encoder = material_encoder(config, "image_encoder", supervised_encoder, **p["image"])
         if self.image_encoder.freeze or p["image"].get("output") != "spatial":
             raise ValueError("EM-FEND requires trainable spatial image features.")
         if p["image"].get("grid_size") != 7:

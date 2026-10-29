@@ -9,7 +9,8 @@ from torch.nn import functional as F
 
 from mmfact.base import AbstractDetector
 from mmfact.materials.encoders import hub_inputs, material_encoder, material_mask
-from mmfact.models_classification._encoders import BertEncoder, ResNetEncoder
+from mmfact.models_classification._encoders import BertEncoder
+from mmfact.models_classification._supervised_vision import supervised_encoder
 from mmfact.models_classification._layers import SingletonBatchNorm
 from mmfact.models_classification._transformers import sinusoidal_positions
 from mmfact.registry import register_model
@@ -195,7 +196,7 @@ class HMCAN(AbstractDetector):
             or text.get("output") != "layer_groups"
             or image.get("output") != "spatial"
         ):
-            raise ValueError("HMCAN requires frozen BERT layer groups and spatial ResNet features.")
+            raise ValueError("HMCAN requires frozen BERT layer groups and supervised spatial image features.")
         groups = text.get("layer_groups")
         if (
             not isinstance(groups, list)
@@ -215,13 +216,11 @@ class HMCAN(AbstractDetector):
         if not isinstance(grid, int) or isinstance(grid, bool) or grid < 2:
             raise ValueError("HMCAN image.grid_size must be an integer >= 2.")
         architecture = image.get("architecture", "resnet34")
-        if not isinstance(architecture, str) or architecture not in {
-            "resnet18",
-            "resnet34",
-            "resnet50",
-            "resnet101",
-        }:
-            raise ValueError("HMCAN requires a supported ResNet architecture.")
+        if image.get("backbone") != "vit" and (
+            not isinstance(architecture, str)
+            or architecture not in {"resnet18", "resnet34", "resnet50", "resnet101"}
+        ):
+            raise ValueError("HMCAN requires a supported supervised visual architecture.")
         weights = image.get("weights", "IMAGENET1K_V1")
         if weights is not None and (
             not isinstance(weights, str) or weights not in {"IMAGENET1K_V1", "IMAGENET1K_V2"}
@@ -249,7 +248,7 @@ class HMCAN(AbstractDetector):
         dimension = self.text_encoder.output_dim
         if dimension % p["num_heads"]:
             raise ValueError("HMCAN BERT dimension must divide evenly among attention heads.")
-        self.image_encoder = material_encoder(config, "image_encoder", ResNetEncoder, **image)
+        self.image_encoder = material_encoder(config, "image_encoder", supervised_encoder, **image)
         self.image_projection = nn.Sequential(
             nn.Conv2d(self.image_encoder.output_dim, dimension, kernel_size=1),
             nn.BatchNorm2d(dimension),

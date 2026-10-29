@@ -1,6 +1,6 @@
 # Paths are relative to the Hub repository and materials_root, respectively.
-repo_id: PNemo/MMFact
-revision: 40caa16d6621c020c49d0422d5e153ef822a9266
+repo_id: MMFact/MMFact
+revision: 88f12904c8db147d2fa6774c956a6afd72ac4272
 datasets: [weibo17, weibo21, gossipcop]
 common:
   - data/train/metadata.jsonl

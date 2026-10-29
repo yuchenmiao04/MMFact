@@ -1,4 +1,4 @@
-"""SpotFake+: sentence-level BERT and ResNet features with regularized fusion."""
+"""SpotFake+: sentence-level BERT and image features with regularized fusion."""
 
 import torch
 from torch import nn
@@ -6,7 +6,8 @@ from torch.nn import functional as F
 
 from mmfact.base import AbstractDetector
 from mmfact.materials.encoders import material_encoder
-from mmfact.models_classification._encoders import ResNetEncoder, SentenceEncoder
+from mmfact.models_classification._encoders import SentenceEncoder
+from mmfact.models_classification._supervised_vision import supervised_encoder
 from mmfact.models_classification._layers import SingletonBatchNorm
 from mmfact.registry import register_model
 
@@ -42,7 +43,7 @@ class SpotFakePlus(AbstractDetector):
             config, "text_encoder", SentenceEncoder, **parameters["text"]
         )
         self.image_encoder = material_encoder(
-            config, "image_encoder", ResNetEncoder, **parameters["image"]
+            config, "image_encoder", supervised_encoder, **parameters["image"]
         )
         text_hidden, image_hidden = parameters["text_hidden"], parameters["image_hidden"]
         self.text_projection = _projection(

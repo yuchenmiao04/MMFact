@@ -12,11 +12,8 @@ from mmfact.base import AbstractDetector
 from mmfact.data.features import file_digest
 from mmfact.materials.encoders import material_encoder
 from mmfact.materials.resources import material_resources
-from mmfact.models_classification._encoders import (
-    BertEncoder,
-    ResNetEncoder,
-    _PretrainedEncoder,
-)
+from mmfact.models_classification._encoders import BertEncoder, _PretrainedEncoder
+from mmfact.models_classification._supervised_vision import supervised_encoder
 from mmfact.models_classification._nslm_resources import ReverseImageEvidence
 from mmfact.models_classification.mcan import DCTEncoder
 from mmfact.registry import register_model
@@ -124,10 +121,13 @@ class NSLM(AbstractDetector):
         if (
             p["text"].get("output") != "tokens"
             or p["text"].get("mask_padding") is not True
-            or p["image"].get("architecture") != "resnet50"
+            or (
+                p["image"].get("backbone") != "vit"
+                and p["image"].get("architecture") != "resnet50"
+            )
             or p["image"].get("output") != "avgpool"
         ):
-            raise ValueError("NSLM requires masked contextual text and pooled ResNet50 semantics.")
+            raise ValueError("NSLM requires masked contextual text and supervised global image semantics.")
         self.parameters_spec = deepcopy(p)
         self.evidence = material_resources(config, "nslm", ReverseImageEvidence, **p["resources"])
         self.text_encoder = material_encoder(config, "text_encoder", _MeanText, **p["text"])
@@ -136,7 +136,7 @@ class NSLM(AbstractDetector):
         self.context_encoder = _MeanText(
             self.text_encoder, self.evidence.contexts, p["context_length"]
         )
-        self.image_encoder = material_encoder(config, "image_encoder", ResNetEncoder, **p["image"])
+        self.image_encoder = material_encoder(config, "image_encoder", supervised_encoder, **p["image"])
         self.frequency_encoder = material_encoder(
             config, "frequency_encoder", DCTEncoder, **p["frequency"]
         )

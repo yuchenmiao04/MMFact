@@ -13,6 +13,7 @@ from mmfact.config import (
     load_config,
 )
 from mmfact.data.cache_policy import PreparedInputError
+from mmfact.materials.vision import resolve_vision_catalog
 
 _DATASETS = {"weibo17", "weibo21", "gossipcop"}
 _SPECIAL = {"liimr", "nlin", "mmcan", "event_radar", "mmrgv", "hammer"}
@@ -31,6 +32,7 @@ def _catalog_parameters(parameters, model, catalog):
     """Use the delivered immutable recipe, keeping losses and trainable flags intact."""
     from mmfact.materials.download import _options
 
+    catalog = resolve_vision_catalog(catalog, model, parameters)
     for entry in catalog["features"]:
         consumers = [
             consumer
@@ -63,6 +65,25 @@ def _catalog_parameters(parameters, model, catalog):
                 branch.get("cleaning"), str
             ):
                 branch["cleaning"] = settings["cleaning"]["language"]
+
+
+def _resolved_explicit(resolved, explicit):
+    """Restore requested keys from load_config's canonical values, not stale YAML.
+
+    A saved ResNet recipe may be selected as ViT (or vice versa). Encoder preset
+    expansion and backbone selection have already happened in ``load_config``;
+    replaying the unexpanded YAML would reintroduce discarded backbone options.
+    An explicit preset stands for its whole resolved branch.
+    """
+    if not isinstance(explicit, dict) or not isinstance(resolved, dict):
+        return deepcopy(resolved)
+    if "encoder_preset" in explicit:
+        return deepcopy(resolved)
+    return {
+        key: _resolved_explicit(resolved[key], value)
+        for key, value in explicit.items()
+        if key in resolved
+    }
 
 
 def _hub_config(config, root, overrides):
@@ -108,11 +129,10 @@ def _hub_config(config, root, overrides):
             domain_names=names,
             **({"field": domain_field} if model != "MMDFND" else {}),
         )
-    # Explicit experiment settings still win, without ever replacing fixed splits.
+    # Explicit experiment settings still win, using their already resolved values.
     for section in ("model", "training"):
         if section in (overrides or {}):
-            _deep_merge(result[section], overrides[section])
-    result["model"]["parameters"] = _resolve_encoder_presets(result["model"]["parameters"], dataset)
+            _deep_merge(result[section], _resolved_explicit(config[section], overrides[section]))
     needed = requires_images(result, catalog)
     result["dataset"].update(require_images=needed, verify_images=False, hash_images=False)
     result["preprocessing"].update(
@@ -192,6 +212,8 @@ def load_material_config(config, materials_root, *, overrides=None):
 
     ``overrides`` is an optional already-resolved explicit caller mapping. It is
     applied last, including explicit values equal to packaged model defaults.
+    For the final Hub layout, ``config`` must already include these choices via
+    ``load_config``; the mapping identifies which canonical values take priority.
     Without it, differences from the packaged defaults remain authoritative.
     All relative material/resource paths are based on ``materials_root``.
     """

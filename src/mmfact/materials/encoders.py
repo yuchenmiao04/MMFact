@@ -99,9 +99,13 @@ def _native(config, native_factory, args, options):
 def _feature(config, role, options):
     """Select catalog aliases and the independently delivered region matrices."""
     from mmfact.materials.hub import FeatureMatrix
+    from mmfact.materials.vision import vision_feature
 
     store = material_store(config)
     method = config["model"]["name"]
+    selected = vision_feature(store.entries, method, role, options)
+    if selected is not None:
+        return FeatureMatrix(store.root, selected)
     if method == "NLIN":
         return store.feature_for("FND-CLIP", f"clip_{role}")
     special = {

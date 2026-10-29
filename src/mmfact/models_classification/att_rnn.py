@@ -11,7 +11,8 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from mmfact.base import AbstractDetector
 from mmfact.materials.encoders import material_encoder
-from mmfact.models_classification._encoders import ResNetEncoder, WordEncoder
+from mmfact.models_classification._encoders import WordEncoder
+from mmfact.models_classification._supervised_vision import supervised_encoder
 from mmfact.registry import register_model
 
 
@@ -47,13 +48,13 @@ class AttRNN(AbstractDetector):
             if type(p[name]) is not int or p[name] < 1:
                 raise ValueError(f"att-RNN {name} must be a positive integer.")
         if p["image"].get("freeze") is not True or p["image"].get("output") != "avgpool":
-            raise ValueError("att-RNN requires frozen pooled ResNet features.")
+            raise ValueError("att-RNN requires frozen global image features.")
         if type(p["text"].get("trainable")) is not bool:
             raise ValueError("att-RNN text.trainable must be boolean.")
         self.recipe = deepcopy(p)
         self.training_texts_sha256 = None
         self.text = material_encoder(config, "text", _Words, **p["text"])
-        self.image = material_encoder(config, "image", ResNetEncoder, **p["image"])
+        self.image = material_encoder(config, "image", supervised_encoder, **p["image"])
         hidden, visual = p["hidden_dim"], p["visual_dim"]
         self.lstm = nn.LSTM(self.text.dimension, hidden, batch_first=True)
         self.visual = nn.Sequential(

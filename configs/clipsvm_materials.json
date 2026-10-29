@@ -1,6 +1,6 @@
 {
-  "repo_id": "PNemo/MMFact",
-  "revision": "40caa16d6621c020c49d0422d5e153ef822a9266",
+  "repo_id": "MMFact/MMFact",
+  "revision": "88f12904c8db147d2fa6774c956a6afd72ac4272",
   "files": [
     {
       "path": "datasets/gossipcop/data/test/metadata.jsonl",
@@ -19,8 +19,8 @@
     },
     {
       "path": "datasets/gossipcop/feature_catalog.json",
-      "bytes": 51485,
-      "sha256": "7768670d824827c05898d7f647fbd066ccae95c53c549a1855f5b99ba6f2e973"
+      "bytes": 58363,
+      "sha256": "f1348cdfa936c49e7d0c4e33222e5a59371a125991224904adacebad6212c425"
     },
     {
       "path": "datasets/gossipcop/features/clip/clip_image_unit512.npy",
@@ -74,8 +74,8 @@
     },
     {
       "path": "datasets/weibo17/feature_catalog.json",
-      "bytes": 38367,
-      "sha256": "f61e5c9eb4020117fb531d3c43beab4d296e0b72840ab9a69bdd0d4afb9fb493"
+      "bytes": 45239,
+      "sha256": "6b01ec755ef8324b2df47ad6ad22afdd7c94ab282d52b1889b9963e807411754"
     },
     {
       "path": "datasets/weibo17/features/clip/chinese_clip_image_unit512.npy",
@@ -129,8 +129,8 @@
     },
     {
       "path": "datasets/weibo21/feature_catalog.json",
-      "bytes": 38367,
-      "sha256": "34968722ff344f011f81830a4de5ab9fc9737c144be6408be3351baafd987a48"
+      "bytes": 45239,
+      "sha256": "1f01e4286eb427b872c778e6f75a3d95dc0629943f5e2693e2aea7b9287fb415"
     },
     {
       "path": "datasets/weibo21/features/clip/chinese_clip_image_unit512.npy",

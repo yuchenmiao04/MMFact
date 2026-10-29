@@ -9,7 +9,8 @@ from torch.nn import functional as F
 
 from mmfact.base import AbstractDetector
 from mmfact.materials.encoders import material_encoder
-from mmfact.models_classification._encoders import ResNetEncoder, WordEncoder
+from mmfact.models_classification._encoders import WordEncoder
+from mmfact.models_classification._supervised_vision import supervised_encoder
 from mmfact.registry import register_model
 
 
@@ -34,7 +35,7 @@ class EANN(AbstractDetector):
         super().__init__(config)
         parameters = config["model"]["parameters"]
         self.text = material_encoder(config, "text", WordEncoder, **parameters["text"])
-        self.image = material_encoder(config, "image", ResNetEncoder, **parameters["image"])
+        self.image = material_encoder(config, "image", supervised_encoder, **parameters["image"])
         hidden = parameters["hidden_dim"]
         self.kernels = tuple(parameters["kernel_sizes"])
         if not self.kernels or any(type(size) is not int or size < 1 for size in self.kernels):

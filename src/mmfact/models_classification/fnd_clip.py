@@ -8,12 +8,8 @@ from torch.nn import functional as F
 
 from mmfact.base import AbstractDetector
 from mmfact.materials.encoders import material_encoder
-from mmfact.models_classification._encoders import (
-    BertEncoder,
-    CLIPImageEncoder,
-    CLIPTextEncoder,
-    ResNetEncoder,
-)
+from mmfact.models_classification._encoders import BertEncoder, CLIPImageEncoder, CLIPTextEncoder
+from mmfact.models_classification._supervised_vision import supervised_encoder
 from mmfact.models_classification._layers import SingletonBatchNorm
 from mmfact.registry import register_model
 
@@ -96,7 +92,7 @@ class FNDCLIP(AbstractDetector):
             config, "text_encoder", BertEncoder, **parameters["text"]
         )
         self.image_encoder = material_encoder(
-            config, "image_encoder", ResNetEncoder, **parameters["image"]
+            config, "image_encoder", supervised_encoder, **parameters["image"]
         )
         self.clip_text_encoder = material_encoder(
             config, "clip_text_encoder", CLIPTextEncoder, **parameters["clip_text"]

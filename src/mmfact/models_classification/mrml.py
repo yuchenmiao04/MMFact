@@ -6,7 +6,8 @@ from torch.nn import functional as F
 
 from mmfact.base import AbstractDetector
 from mmfact.materials.encoders import material_encoder
-from mmfact.models_classification._encoders import BertEncoder, ResNetEncoder
+from mmfact.models_classification._encoders import BertEncoder
+from mmfact.models_classification._supervised_vision import supervised_encoder
 from mmfact.models_classification._layers import SingletonBatchNorm
 from mmfact.registry import register_model
 
@@ -67,8 +68,9 @@ class MRML(AbstractDetector):
             config, "text_encoder", BertEncoder, **parameters["text"]
         )
         self.image_encoder = material_encoder(
-            config, "image_encoder", ResNetEncoder, **parameters["image"]
+            config, "image_encoder", supervised_encoder, **parameters["image"]
         )
+        self.image_input_relu = parameters["image"].get("backbone") != "vit"
 
         def projection(input_dim):
             return nn.Sequential(
@@ -107,7 +109,11 @@ class MRML(AbstractDetector):
 
     def _project(self, batch):
         text = self.text_projection(self.text_encoder(batch["text"]))
-        image = self.image_projection(self.image_encoder(batch["image_path"]).relu())
+        image = self.image_encoder(batch["image_path"])
+        # ResNet avgpool is nonnegative; ViT's final-normalized CLS is signed.
+        if self.image_input_relu:
+            image = image.relu()
+        image = self.image_projection(image)
         return text, image
 
     def _fuse(self, text, image, pairwise=False):

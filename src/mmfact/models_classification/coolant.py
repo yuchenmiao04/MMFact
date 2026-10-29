@@ -10,7 +10,8 @@ from torch.nn import functional as F
 from mmfact.base import AbstractDetector
 from mmfact.materials.encoders import material_encoder
 from mmfact.models_classification._distributions import GaussianEncoder, mixture_kl
-from mmfact.models_classification._encoders import BertEncoder, ResNetEncoder
+from mmfact.models_classification._encoders import BertEncoder
+from mmfact.models_classification._supervised_vision import supervised_encoder
 from mmfact.models_classification._layers import SingletonBatchNorm
 from mmfact.registry import register_model
 
@@ -133,10 +134,12 @@ def _validate(parameters):
     for key, frozen in (("image", True), ("contrastive_image", False)):
         image = parameters[key]
         if image["freeze"] is not frozen or image["output"] != "avgpool":
-            raise ValueError("COOLANT requires frozen ITM and trainable contrastive pooled ResNet.")
-        if image["architecture"] not in {"resnet18", "resnet34", "resnet50", "resnet101"}:
-            raise ValueError("COOLANT requires a supported ResNet architecture.")
-        if type(image["stem_maxpool"]) is not bool:
+            raise ValueError("COOLANT requires frozen ITM and trainable contrastive global image features.")
+        if image.get("backbone") != "vit" and image["architecture"] not in {
+            "resnet18", "resnet34", "resnet50", "resnet101"
+        }:
+            raise ValueError("COOLANT requires a supported supervised visual architecture.")
+        if image.get("backbone") != "vit" and type(image["stem_maxpool"]) is not bool:
             raise ValueError("COOLANT stem_maxpool must be boolean.")
     normalization = parameters["normalization"]
     if any(
@@ -214,10 +217,10 @@ class COOLANT(AbstractDetector):
             config, "text_encoder", BertEncoder, **parameters["text"]
         )
         self.image_encoder = material_encoder(
-            config, "image_encoder", ResNetEncoder, **parameters["image"]
+            config, "image_encoder", supervised_encoder, **parameters["image"]
         )
         self.contrastive_image_encoder = material_encoder(
-            config, "contrastive_image_encoder", ResNetEncoder, **parameters["contrastive_image"]
+            config, "contrastive_image_encoder", supervised_encoder, **parameters["contrastive_image"]
         )
         self.consistency = _Consistency(
             self.text_encoder.output_dim, self.image_encoder.output_dim, parameters

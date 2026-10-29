@@ -12,7 +12,8 @@ from torch.utils.data import DataLoader, Sampler
 from mmfact.base import AbstractDetector
 from mmfact.materials.encoders import hub_inputs, material_encoder
 from mmfact.models_classification._domains import DomainTargets
-from mmfact.models_classification._encoders import BertEncoder, ResNetEncoder
+from mmfact.models_classification._encoders import BertEncoder
+from mmfact.models_classification._supervised_vision import imagenet_classifier, supervised_encoder
 from mmfact.registry import register_model
 
 
@@ -103,16 +104,34 @@ class RDCM(AbstractDetector):
         # weights so fixed word features retain the same cache identity by seed.
         if not hub_inputs(config):
             self.text_encoder.network.pooler = None
-        # Retain the original frozen ImageNet head while sharing its pooled backbone.
-        self.image_encoder = ResNetEncoder(**{**p["image"], "output": "logits"})
-        self.instance_head = self.image_encoder.network.fc
-        self.image_encoder.output_dim = self.instance_head.in_features
-        self.image_encoder.network.fc = nn.Identity()
-        self.image_encoder.encoding_spec["output"] = "avgpool"
-        if hub_inputs(config):
+        self.instance_encoder = None
+        if p["image"].get("backbone") == "vit" and hub_inputs(config):
+            # Both immutable views were produced by the same ViT checkpoint.
             self.image_encoder = material_encoder(
-                config, "image_encoder", ResNetEncoder, **p["image"]
+                config, "image_encoder", supervised_encoder, **p["image"]
             )
+            self.instance_encoder = material_encoder(
+                config, "instance_encoder", supervised_encoder,
+                **{**p["image"], "output": "logits"},
+            )
+            self.instance_head = nn.Identity()
+        else:
+            # Keep the actual ImageNet head, not a new 1000-way projection.
+            vit = p["image"].get("backbone") == "vit"
+            self.image_encoder = supervised_encoder(
+                **{**p["image"], "output": "avgpool" if vit else "logits"}
+            )
+            self.instance_head = imagenet_classifier(self.image_encoder)
+            self.image_encoder.output_dim = self.instance_head.in_features
+            if vit:
+                self.image_encoder.network.classifier = nn.Identity()
+            else:
+                self.image_encoder.network.fc = nn.Identity()
+                self.image_encoder.encoding_spec["output"] = "avgpool"
+            if hub_inputs(config):
+                self.image_encoder = material_encoder(
+                    config, "image_encoder", supervised_encoder, **p["image"]
+                )
         dimension = p["hidden_dim"]
         self.convolutions = nn.ModuleList(
             nn.Conv1d(self.text_encoder.output_dim, p["filter_num"], kernel)
@@ -166,13 +185,15 @@ class RDCM(AbstractDetector):
             or text["max_length"] < max(kernels)
             or image.get("output") != "avgpool"
             or image.get("freeze") is not True
-            or image.get("architecture") != "resnet50"
-            or image.get("center_crop") is not True
+            or (
+                image.get("backbone") != "vit"
+                and (image.get("architecture") != "resnet50" or image.get("center_crop") is not True)
+            )
             or image.get("stem_maxpool", True) is not True
             or p["domains"].get("max_labels") != 1
         ):
             raise ValueError(
-                "RDCM requires frozen word/ResNet50 features and single source domains."
+                "RDCM requires frozen word/supervised image features and single source domains."
             )
         sigmas = p["kernel_sigmas"]
         if (
@@ -265,7 +286,8 @@ class RDCM(AbstractDetector):
             * _cross_modal(
                 text,
                 image,
-                self.instance_head(visual),
+                self.instance_encoder(batch["image_path"])
+                if self.instance_encoder is not None else self.instance_head(visual),
                 labels,
                 p["temperature"],
                 p["threshold"],

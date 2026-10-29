@@ -22,7 +22,8 @@ from mmfact.materials.training import (
     resource_rows,
     resource_tensor,
 )
-from mmfact.models_classification._encoders import BertEncoder, ResNetEncoder
+from mmfact.models_classification._encoders import BertEncoder
+from mmfact.models_classification._supervised_vision import supervised_encoder
 from mmfact.models_classification._generated import pair_identity
 from mmfact.models_classification._layers import SingletonBatchNorm
 from mmfact.registry import register_model
@@ -250,10 +251,10 @@ def _validate(p):
         or p["text"]["max_length"] < 3
         or p["image"]["freeze"] is not True
         or p["image"]["output"] != "avgpool"
-        or p["image"]["center_crop"] is not True
+        or (p["image"].get("backbone") != "vit" and p["image"]["center_crop"] is not True)
     ):
         raise ValueError(
-            "CSFND requires frozen masked BERT body tokens and frozen center-cropped ResNet pooled features."
+            "CSFND requires frozen masked BERT body tokens and frozen supervised global image features."
         )
 
 
@@ -266,7 +267,7 @@ class CSFND(AbstractDetector):
         self.parameters_spec = deepcopy(p)
         self.text_encoder, self.image_encoder = (
             material_encoder(config, "text_encoder", _ContentBertEncoder, **p["text"]),
-            material_encoder(config, "image_encoder", ResNetEncoder, **p["image"]),
+            material_encoder(config, "image_encoder", supervised_encoder, **p["image"]),
         )
         td, vd, d = self.text_encoder.output_dim, self.image_encoder.output_dim, p["dimension"]
         self.context_learners = nn.ModuleList(

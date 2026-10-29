@@ -11,7 +11,8 @@ from mmfact.base import AbstractDetector
 from mmfact.materials.encoders import material_encoder
 from mmfact.models_classification._adose_data import _ADOSETraining
 from mmfact.models_classification._adose_select import _variance_grid
-from mmfact.models_classification._encoders import BertEncoder, ResNetEncoder
+from mmfact.models_classification._encoders import BertEncoder
+from mmfact.models_classification._supervised_vision import supervised_encoder
 from mmfact.models_classification.eann import GradientReversal
 from mmfact.registry import register_model
 
@@ -77,7 +78,7 @@ class ADOSE(_ADOSETraining, AbstractDetector):
         self.parameters_spec = deepcopy(p)
         self._init_training(p)
         self.text_encoder = material_encoder(config, "text_encoder", BertEncoder, **p["text"])
-        self.image_encoder = material_encoder(config, "image_encoder", ResNetEncoder, **p["image"])
+        self.image_encoder = material_encoder(config, "image_encoder", supervised_encoder, **p["image"])
         dimension, dropout = p["hidden_dim"], p["dropout"]
         self.convolutions = nn.ModuleList(
             nn.Conv1d(self.text_encoder.output_dim, p["filter_num"], kernel)
@@ -138,12 +139,15 @@ class ADOSE(_ADOSETraining, AbstractDetector):
             or text["max_length"] < max(kernels)
             or image.get("output") != "avgpool"
             or image.get("freeze") is not True
-            or image.get("architecture") != "resnet50"
+            or (
+                image.get("backbone") != "vit"
+                and image.get("architecture") != "resnet50"
+            )
             or type(image.get("center_crop")) is not bool
             or image.get("stem_maxpool", True) is not True
         ):
             raise ValueError(
-                "ADOSE requires frozen fixed-length input embeddings and ResNet50 pooled features."
+                "ADOSE requires frozen fixed-length input embeddings and supervised global image features."
             )
         for key in (
             "dropout",

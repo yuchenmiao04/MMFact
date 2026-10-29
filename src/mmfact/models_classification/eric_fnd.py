@@ -11,11 +11,8 @@ from torch.nn import functional as F
 from mmfact.base import AbstractDetector
 from mmfact.materials.encoders import material_encoder
 from mmfact.materials.resources import material_resources
-from mmfact.models_classification._encoders import (
-    BertEncoder,
-    ResNetEncoder,
-    _PretrainedEncoder,
-)
+from mmfact.models_classification._encoders import BertEncoder, _PretrainedEncoder
+from mmfact.models_classification._supervised_vision import supervised_encoder
 from mmfact.models_classification._entities import EntityDescriptionStore
 from mmfact.models_classification._eric_nlin import ERICNLINResources
 from mmfact.models_classification._layers import SingletonBatchNorm
@@ -133,7 +130,7 @@ class ERICFND(AbstractDetector):
             ):
                 raise ValueError(f"ERIC-FND {name} is outside its permitted finite range.")
         if p["text"].get("output") != "cls" or p["image"].get("output") != "avgpool":
-            raise ValueError("ERIC-FND requires last-layer BERT CLS and pooled ResNet features.")
+            raise ValueError("ERIC-FND requires last-layer BERT CLS and global image features.")
         for name in ("text", "image"):
             if type(p[name].get("freeze", True)) is not bool:
                 raise ValueError(f"ERIC-FND {name}.freeze must be boolean.")
@@ -172,7 +169,7 @@ class ERICFND(AbstractDetector):
             p["description_length"],
             self.entities.max_entities,
         )
-        self.image_encoder = material_encoder(config, "image_encoder", ResNetEncoder, **p["image"])
+        self.image_encoder = material_encoder(config, "image_encoder", supervised_encoder, **p["image"])
         feature, aligned, hidden = p["feature_dim"], p["alignment_dim"], p["classifier_dim"]
         self.text_projection = nn.Linear(self.text_encoder.output_dim, feature)
         self.image_projection = nn.Linear(self.image_encoder.output_dim, feature)

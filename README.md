@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://arxiv.org/abs/2610.34162"><img src="https://img.shields.io/badge/arXiv-2610.34162-B31B1B?style=flat&amp;logo=arxiv&amp;logoColor=white" alt="arXiv: 2610.34162" height="20"></a>
-  <a href="https://huggingface.co/datasets/PNemo/MMFact"><img src="https://img.shields.io/badge/Hugging%20Face-Dataset-FFD21E?style=flat&amp;logo=huggingface" alt="Hugging Face: Dataset" height="20"></a>
+  <a href="https://huggingface.co/datasets/MMFact/MMFact"><img src="https://img.shields.io/badge/Hugging%20Face-Dataset-FFD21E?style=flat&amp;logo=huggingface" alt="Hugging Face: Dataset" height="20"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-%E2%89%A53.10-3776AB?style=flat&amp;logo=python&amp;logoColor=white" alt="Python &gt;=3.10" height="20"></a>
   <a href="https://pytorch.org/"><img src="https://img.shields.io/badge/PyTorch-%E2%89%A52.2-EE4C2C?style=flat&amp;logo=pytorch&amp;logoColor=white" alt="PyTorch &gt;=2.2" height="20"></a>
 </p>
@@ -33,6 +33,8 @@ pip install -e ".[hub,models]"
 
 **Download Materials and Run**
 
+Request access to the [MMFact dataset](https://huggingface.co/datasets/MMFact/MMFact). After approval, run `hf auth login` with the approved account before downloading materials.
+
 For example, run CLIPMLP on Weibo-17:
 
 ```bash
@@ -43,6 +45,12 @@ python main.py --model CLIPMLP --dataset weibo17 \
 ```
 
 Use `--model` and `--dataset` to select other models and datasets. Configuration files are in `configs/`, and results are saved to `runs/`.
+
+Ordinary supervised visual branches default to **ViT-B/16**. Add
+`--vision-backbone resnet` to **both** the download and training commands for the
+ResNet-50 comparison. Both choices use the same selected experiment parameters;
+MAE, CLIP, and dedicated detection or forensic branches retain their own backbones.
+See [Visual Backbones](VISION_BACKBONES.md) for feature formats and fine-tuning behavior.
 
 ## Datasets
 
@@ -59,7 +67,7 @@ Use `--model` and `--dataset` to select other models and datasets. Configuration
 | Majority |  |  | [majority.py](src/mmfact/models_classification/majority.py) |
 | TFIDFLogistic |  |  | [tfidflogistic.py](src/mmfact/models_classification/tfidflogistic.py) |
 | TextPLM | [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://aclanthology.org/N19-1423/)<br>[Longformer: The Long-Document Transformer](https://arxiv.org/abs/2004.05150) | NAACL 2019<br>arXiv 2020 | [textplm.py](src/mmfact/models_classification/textplm.py) |
-| ImageOnly | [Deep Residual Learning for Image Recognition](https://openaccess.thecvf.com/content_cvpr_2016/html/He_Deep_Residual_Learning_CVPR_2016_paper.html) | CVPR 2016 | [imageonly.py](src/mmfact/models_classification/imageonly.py) |
+| ImageOnly | [An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale](https://openreview.net/forum?id=YicbFdNTTy)<br>[Deep Residual Learning for Image Recognition](https://openaccess.thecvf.com/content_cvpr_2016/html/He_Deep_Residual_Learning_CVPR_2016_paper.html) | ICLR 2021<br>CVPR 2016 | [imageonly.py](src/mmfact/models_classification/imageonly.py) |
 | ConcatMLP |  |  | [concatmlp.py](src/mmfact/models_classification/concatmlp.py) |
 | CLIPLinear |  |  | [cliplinear.py](src/mmfact/models_classification/cliplinear.py) |
 | CLIPSVM |  |  | [clipsvm.py](src/mmfact/models_classification/clipsvm.py) |

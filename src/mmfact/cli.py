@@ -25,6 +25,10 @@ def main(argv=None) -> int:
     parser.add_argument("--checkpoint", help="Framework checkpoint for evaluate mode")
     parser.add_argument("--input-mode", choices=["raw", "prepared"])
     parser.add_argument("--materials-root", help="Existing materials directory")
+    parser.add_argument(
+        "--vision-backbone", choices=["vit", "resnet"],
+        help="Ordinary supervised visual backbone; defaults to ViT in supported models",
+    )
     material_action = parser.add_mutually_exclusive_group()
     material_action.add_argument(
         "--list-materials",
@@ -41,6 +45,8 @@ def main(argv=None) -> int:
     )
     parser.add_argument("--download-workers", type=int, default=8)
     args = parser.parse_args(argv)
+    if args.vision_backbone is not None:
+        args.overrides.append(f"model.vision_backbone={args.vision_backbone}")
     try:
         if args.list_materials or args.download_materials:
             from mmfact.config import load_config

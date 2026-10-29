@@ -1,4 +1,5 @@
 model:
+  vision_backbone: vit
   name: ADOSE
   parameters:
     text:

@@ -20,6 +20,7 @@ from mmfact.models_classification._encoders import (
     _PretrainedEncoder,
 )
 from mmfact.registry import register_model
+from mmfact.models_classification._supervised_vision import ViTIndependentPatches
 
 
 def _sha(value):
@@ -198,6 +199,12 @@ class _PatchEncoder(ResNetEncoder):
                 ]
             results.append(torch.cat(features))
         return torch.stack(results)
+
+
+def _patch_encoder(**options):
+    if options.get("backbone") == "vit":
+        return ViTIndependentPatches(resize="bilinear", **options)
+    return _PatchEncoder(**options)
 
 
 def _word_encoding(tokenizer, texts, syntax, max_length):
@@ -758,7 +765,7 @@ class LogicDM(AbstractDetector):
         self.text_encoder = material_encoder(
             config, "text_encoder", _WordBertEncoder, self.syntax_encoder, **p["text"]
         )
-        self.image_encoder = material_encoder(config, "image_encoder", _PatchEncoder, **p["image"])
+        self.image_encoder = material_encoder(config, "image_encoder", _patch_encoder, **p["image"])
         dimension = p["dimension"]
         self.lstm = nn.LSTM(self.text_encoder.output_dim, dimension, batch_first=True)
         self.image_projection = nn.Sequential(
